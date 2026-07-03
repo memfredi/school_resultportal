@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  role      Role     @default(TEACHER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+model Specialty {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  programs  Program[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Program {
+  id          String    @id @default(uuid())
+  name        String
+  specialtyId String
+  specialty   Specialty @relation(fields: [specialtyId], references: [id])
+  results     Result[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([name, specialtyId])
+}
+
+model Result {
+  id           String       @id @default(uuid())
+  studentName  String
+  matricule    String
+  courseCode   String
+  courseName   String
+  caScore      Float
+  examScore    Float
+  totalScore   Float
+  grade        String
+  status       ResultStatus @default(NOT_READY)
+  academicYear String
+  semester     Int
+  programId    String
+  program      Program      @relation(fields: [programId], references: [id])
+  uploadDate   DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([matricule, courseCode, academicYear, semester])
+}
+
+enum ResultStatus {
+  NOT_READY
+  READY_FOR_PUBLISHING
+  PUBLISHING
+  PUBLISHED
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  message   String
+  specialty String?
+  program   String?
+  status    String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String? // Reference to User doing the action
+  action    String
+  specialty String?
+  program   String?
+  createdAt DateTime @default(now())
+}
