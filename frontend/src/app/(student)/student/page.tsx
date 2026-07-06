@@ -8,6 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { DownloadCloud, Printer, Award, BookOpen } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 function getStanding(avg: number) {
     if (avg >= 80) return { label: 'First Class Honors', color: 'bg-green-100 text-green-800 border-green-200' };
@@ -97,36 +99,47 @@ export default function StudentDashboard() {
     const downloadTranscript = () => {
         if (!data?.results || data.results.length === 0) return;
 
-        // Define CSV headers
-        const headers = ['Course Code', 'Course Name', 'CA Score', 'Exam Score', 'Total Score', 'Grade', 'Status'];
+        const doc = new jsPDF();
+        const userName = user?.username || 'Student';
+        const programName = program ? `${program.specialty?.name} - ${program.name}` : `ID: ${userName}`;
 
-        // Map results to CSV rows
-        const rows = data.results.map((res: any) => [
-            res.courseCode,
-            `"${res.courseName}"`, // Escape spaces in names
-            res.caScore,
-            res.examScore,
-            res.totalScore,
-            res.grade,
-            res.totalScore >= 50 ? 'Pass' : 'Fail'
-        ]);
+        doc.setFontSize(22);
+        doc.text('OFFICIAL RESULT SLIP', 14, 22);
 
-        // Combine headers and rows
-        const csvContent = [
-            headers.join(','),
-            ...rows.map((row: any) => row.join(','))
-        ].join('\n');
+        doc.setFontSize(12);
+        doc.text(`University Results Portal`, 14, 30);
+        doc.text(`Student: ${userName}`, 14, 38);
+        doc.text(`Program: ${programName}`, 14, 46);
+        doc.text(`Semester GPA: ${data.gpa} | Average: ${data.avg}% | Standing: ${data.standing.label}`, 14, 54);
 
-        // Create an invisible anchor to trigger download
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', `${user?.username || 'Student'}_Transcript.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const tableColumn = ["Course Code", "Course Name", "CA (30)", "Exam (70)", "Total", "Grade", "Status"];
+        const tableRows: any[] = [];
+
+        data.results.forEach((res: any) => {
+            const status = res.totalScore >= 50 ? 'Pass' : 'Fail';
+            const rowData = [
+                res.courseCode,
+                res.courseName,
+                res.caScore,
+                res.examScore,
+                res.totalScore,
+                res.grade,
+                status
+            ];
+            tableRows.push(rowData);
+        });
+
+        // Use autoTable which we imported
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 62,
+            styles: { fontSize: 10, cellPadding: 3 },
+            headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [245, 245, 245] }
+        });
+
+        doc.save(`${userName}_Transcript.pdf`);
     };
 
     return (
@@ -206,40 +219,42 @@ export default function StudentDashboard() {
                             <p className="text-sm mt-1">Results will appear here once published by the administration.</p>
                         </div>
                     ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-muted/50">
-                                    <TableHead>Course Code</TableHead>
-                                    <TableHead>Course Name</TableHead>
-                                    <TableHead className="text-right">CA (30)</TableHead>
-                                    <TableHead className="text-right">Exam (70)</TableHead>
-                                    <TableHead className="text-right">Total</TableHead>
-                                    <TableHead className="text-right">Grade</TableHead>
-                                    <TableHead className="text-right">Status</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {data.results.map((res: any) => (
-                                    <TableRow key={res.id}>
-                                        <TableCell className="font-medium font-mono">{res.courseCode}</TableCell>
-                                        <TableCell>{res.courseName}</TableCell>
-                                        <TableCell className="text-right">{res.caScore}</TableCell>
-                                        <TableCell className="text-right">{res.examScore}</TableCell>
-                                        <TableCell className="text-right font-bold">{res.totalScore}</TableCell>
-                                        <TableCell className="text-right">
-                                            <span className={`font-semibold ${res.totalScore >= 50 ? 'text-green-600' : 'text-red-600'}`}>
-                                                {res.grade}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Badge variant={res.totalScore >= 50 ? 'success' : 'destructive'}>
-                                                {res.totalScore >= 50 ? 'Pass' : 'Fail'}
-                                            </Badge>
-                                        </TableCell>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-muted/50">
+                                        <TableHead className="whitespace-nowrap">Course Code</TableHead>
+                                        <TableHead className="min-w-[200px]">Course Name</TableHead>
+                                        <TableHead className="text-right whitespace-nowrap">CA (30)</TableHead>
+                                        <TableHead className="text-right whitespace-nowrap">Exam (70)</TableHead>
+                                        <TableHead className="text-right whitespace-nowrap">Total</TableHead>
+                                        <TableHead className="text-right whitespace-nowrap">Grade</TableHead>
+                                        <TableHead className="text-right whitespace-nowrap">Status</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {data.results.map((res: any) => (
+                                        <TableRow key={res.id}>
+                                            <TableCell className="font-medium font-mono whitespace-nowrap">{res.courseCode}</TableCell>
+                                            <TableCell className="min-w-[200px]">{res.courseName}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{res.caScore}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{res.examScore}</TableCell>
+                                            <TableCell className="text-right font-bold whitespace-nowrap">{res.totalScore}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">
+                                                <span className={`font-semibold ${res.totalScore >= 50 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {res.grade}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">
+                                                <Badge variant={res.totalScore >= 50 ? 'success' : 'destructive'}>
+                                                    {res.totalScore >= 50 ? 'Pass' : 'Fail'}
+                                                </Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                     )}
                 </CardContent>
             </Card>
